@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>National School Quiz Portal</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <div class="logo-area">
+    <h2>🏛️ National School Quiz Portal</h2>
+    <span id="userBadge" class="user-pill hidden"></span>
+  </div>
+  <button id="logoutBtn" class="btn btn-outline hidden" onclick="logout()">Logout</button>
+</header>
+
+<div class="container">
+
+  <div id="authView" class="card">
+    <h3>Sign In or Register</h3>
+    <p>Sign in using your ID or register your profile and initial class.</p>
+    <div class="form-group">
+      <label>User ID / Roll No:</label>
+      <input type="text" id="loginUserId" placeholder="e.g. 2486 or ADMIN">
+    </div>
+    <div class="form-group">
+      <label>Full Name:</label>
+      <input type="text" id="loginUserName" placeholder="e.g. HARI">
+    </div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Primary Standard / Class:</label>
+        <select id="loginUserStd"></select>
+      </div>
+      <div class="form-group">
+        <label>Role:</label>
+        <select id="loginUserRole">
+          <option value="student">Student</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn btn-primary w-100" onclick="handleAuth()">Access Portal</button>
+  </div>
+
+  <div id="mainApp" class="hidden">
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('play')">Play Quiz</button>
+      <button class="tab-btn" onclick="switchTab('create')">Upload / Create Q&A</button>
+      <button class="tab-btn" onclick="switchTab('reports')">My Score Reports</button>
+      <button class="tab-btn admin-only hidden" onclick="switchTab('admin')">Admin Board</button>
+    </div>
+
+    <div id="playTab">
+      
+     <!-- QUIZ SETUP / FILTER CARD -->
+      <div id="quizSetupCard" class="card">
+        <h3>🎯 Start Assessment</h3>
+        <p class="notice">Customize your quiz standard, subject, question limit, and optional time schedule.</p>
+        
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Select Allowed Class:</label>
+            <select id="quizStdSelect"></select>
+          </div>
+          <div class="form-group">
+            <label>Select Subject:</label>
+            <select id="quizSubjectSelect"></select>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <!-- MANUAL TYPE OR CHOOSE ALL -->
+          <div class="form-group">
+            <label>Number of Questions:</label>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <input type="number" id="quizCustomCountInput" min="1" placeholder="Type count (e.g. 5, 25)" value="5" style="flex: 1;">
+              <label style="display: inline-flex; align-items: center; gap: 5px; font-size: 0.85rem; white-space: nowrap; cursor: pointer;">
+                <input type="checkbox" id="quizSelectAllCheckbox" onchange="toggleSelectAllQuestions(this.checked)" style="width: auto;">
+                All Questions
+              </label>
+            </div>
+          </div>
+
+          <!-- TIMER SELECTION -->
+          <div class="form-group">
+            <label>Timer Schedule (Per Question):</label>
+            <select id="quizTimerSelect">
+              <option value="0">No Timer (Manual Next)</option>
+              <option value="10">10 Seconds / Question</option>
+              <option value="15">15 Seconds / Question</option>
+              <option value="20" selected>20 Seconds / Question</option>
+              <option value="30">30 Seconds / Question</option>
+              <option value="60">60 Seconds / Question</option>
+            </select>
+          </div>
+        </div>
+
+        <button class="btn btn-primary w-100 margin-top" onclick="startQuiz()">🚀 Start Quiz</button>
+      </div>
+
+      <div id="quizActiveCard" class="card hidden">
+        <div class="quiz-top-bar">
+          <span id="quizProgressBadge" class="badge-pill">Question 1 / 5</span>
+          <div id="timerContainer" class="timer-badge">
+            ⏱️ Time Left: <span id="timerText" style="font-weight:bold;">20s</span>
+          </div>
+        </div>
+
+        <div id="timerBarTrack" class="timer-bar-track">
+          <div id="timerBarFill" class="timer-bar-fill"></div>
+        </div>
+
+        <div id="singleQuestionArea" style="margin-top: 15px;"></div>
+
+        <div class="quiz-footer-actions">
+          <button id="btnNextQuestion" class="btn btn-primary" onclick="nextQuestion(false)">Next Question ⏩</button>
+        </div>
+      </div>
+
+      <div id="quizResultCard" class="card text-center hidden">
+        <h2>🎉 Quiz Completed!</h2>
+        <div id="resultScoreDisplay" style="font-size: 2.2rem; font-weight: bold; margin: 15px 0; color: var(--primary);"></div>
+        <p id="resultFeedback" style="font-size: 1.1rem;"></p>
+        <button class="btn btn-primary margin-top" onclick="resetQuizView()">Retake / New Quiz</button>
+      </div>
+
+    </div>
+
+    <div id="createTab" class="hidden">
+      <div style="display:flex; gap:10px; margin-bottom: 15px;">
+        <button id="btnMethodAi" class="btn btn-secondary flex-1" onclick="switchCreateMethod('ai')">📷 Method 1: AI Photo Scanner</button>
+        <button id="btnMethodManual" class="btn btn-outline-dark flex-1" onclick="switchCreateMethod('manual')">✍️ Method 2: Manual Form Entry</button>
+      </div>
+
+      <div id="sectionAiCreate" class="card">
+        <h3>📷 Generate Questions via Gemini Vision</h3>
+        <p class="notice">Take or upload a photo of a textbook, bill, notes, or test page.</p>
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Upload/Capture Picture:</label>
+            <input type="file" id="imageInput" accept="image/*" capture="environment">
+          </div>
+          <div class="form-group">
+            <label>Question Count:</label>
+            <select id="ocrCount">
+              <option value="5">5 Questions</option>
+              <option value="10" selected>10 Questions</option>
+              <option value="15">15 Questions</option>
+              <option value="20">20 Questions</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-secondary w-100" onclick="generateFromImage()">⚡ Parse & Generate Questions</button>
+        <div id="ocrLoader" class="loader hidden">Analyzing document & preparing questions...</div>
+
+        <div id="ocrPreviewArea" class="hidden margin-top">
+          <h4>Generated Questions Preview</h4>
+          <div class="grid-2">
+            <div class="form-group">
+              <label>Assign to Standard:</label>
+              <select id="batchStd"></select>
+            </div>
+            <div class="form-group">
+              <label>Assign to Subject:</label>
+              <select id="batchSub"></select>
+            </div>
+          </div>
+          <div id="batchPreviewList" class="preview-box"></div>
+          <button class="btn btn-success w-100 margin-top" onclick="saveExtractedBatch()">💾 Publish All Questions</button>
+        </div>
+      </div>
+
+      <div id="sectionManualCreate" class="card hidden">
+        <h3>✍️ Manual Question Creator</h3>
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Target Standard / Class:</label>
+            <select id="manualStd"></select>
+          </div>
+          <div class="form-group">
+            <label>Subject:</label>
+            <select id="manualSub"></select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Question Text:</label>
+          <textarea id="manualQuestionText" rows="2" placeholder="Enter Question..."></textarea>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Option A:</label>
+            <input type="text" id="manualOptA" placeholder="Option A">
+          </div>
+          <div class="form-group">
+            <label>Option B:</label>
+            <input type="text" id="manualOptB" placeholder="Option B">
+          </div>
+          <div class="form-group">
+            <label>Option C:</label>
+            <input type="text" id="manualOptC" placeholder="Option C">
+          </div>
+          <div class="form-group">
+            <label>Option D:</label>
+            <input type="text" id="manualOptD" placeholder="Option D">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Correct Option:</label>
+          <select id="manualCorrectOpt">
+            <option value="1">Option A</option>
+            <option value="2">Option B</option>
+            <option value="3">Option C</option>
+            <option value="4">Option D</option>
+          </select>
+        </div>
+        <button class="btn btn-primary w-100 margin-top" onclick="publishManualSingleQuestion()">Publish Question</button>
+      </div>
+    </div>
+
+   <!-- TAB 3: USER REPORTS (WITH FROM DATE TO TO DATE FILTER) -->
+    <div id="reportsTab" class="hidden">
+      <div class="card">
+        <h3>📊 Score Reports & Progress Tracking</h3>
+        <p class="notice">Filter your performance report by date range, standard, or subject.</p>
+
+        <!-- DATE RANGE & SUBJECT FILTERS -->
+        <div class="grid-2">
+          <div class="form-group">
+            <label>From Date:</label>
+            <input type="date" id="reportFromDate" onchange="filterUserReports()">
+          </div>
+          <div class="form-group">
+            <label>To Date:</label>
+            <input type="date" id="reportToDate" onchange="filterUserReports()">
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Filter by Standard:</label>
+            <select id="reportFilterStd" onchange="filterUserReports()">
+              <option value="">All Standards</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Filter by Subject:</label>
+            <select id="reportFilterSub" onchange="filterUserReports()">
+              <option value="">All Subjects</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 5px;">
+          <button class="btn btn-outline-dark flex-1" onclick="resetReportDateFilters()">🔄 Reset Filters</button>
+        </div>
+
+        <!-- SUMMARY STAT CARDS -->
+        <div style="display: flex; gap: 12px; margin: 20px 0; flex-wrap: wrap;">
+          <div style="flex: 1; min-width: 140px; background: #e8f4fd; border: 1px solid #b6d4fe; padding: 12px; border-radius: 6px; text-align: center;">
+            <div style="font-size: 0.8rem; color: #084298; font-weight: bold;">TESTS TAKEN</div>
+            <div id="statTotalTests" style="font-size: 1.5rem; font-weight: bold; color: var(--primary);">0</div>
+          </div>
+          <div style="flex: 1; min-width: 140px; background: #e2f0d9; border: 1px solid #c3e6cb; padding: 12px; border-radius: 6px; text-align: center;">
+            <div style="font-size: 0.8rem; color: #155724; font-weight: bold;">AVERAGE SCORE</div>
+            <div id="statAvgScore" style="font-size: 1.5rem; font-weight: bold; color: var(--accent);">0%</div>
+          </div>
+          <div style="flex: 1; min-width: 140px; background: #fff3cd; border: 1px solid #ffeeba; padding: 12px; border-radius: 6px; text-align: center;">
+            <div style="font-size: 0.8rem; color: #856404; font-weight: bold;">BEST SCORE</div>
+            <div id="statBestScore" style="font-size: 1.5rem; font-weight: bold; color: #d39e00;">0%</div>
+          </div>
+        </div>
+
+        <!-- REPORTS TABLE -->
+        <table class="report-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Standard</th>
+              <th>Subject</th>
+              <th>Score</th>
+              <th>Percentage</th>
+            </tr>
+          </thead>
+          <tbody id="userScoresTable"></tbody>
+        </table>
+      </div>
+    </div>
+
+
+    <div id="adminTab" class="hidden">
+      
+      <div class="card">
+        <h3>🛡️ User Class Access Permissions</h3>
+        <p class="notice">Select checkmarks to grant students (e.g. TNPSC/Aspirants) access to multiple class quizzes.</p>
+        <div class="table-responsive">
+          <table class="report-table">
+            <thead>
+              <tr>
+                <th>User ID</th>
+                <th>Name</th>
+                <th>Role</th>
+                <th>Allowed Standards (Check to Grant)</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="adminUserPermissionTable"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>⚙️ Curriculum Management</h3>
+        <div class="grid-2">
+          <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid var(--border);">
+            <h4>➕ Add Class Standard</h4>
+            <div class="form-group">
+              <input type="text" id="adminNewStdInput" placeholder="e.g. 5, 11, 12, Degree, TNPSC">
+            </div>
+            <button class="btn btn-primary w-100" onclick="adminAddNewConfig('Standard')">Save Standard</button>
+            <h5 style="margin-top:15px; margin-bottom:5px;">Existing Standards:</h5>
+            <div id="adminStdBadgeList" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
+          </div>
+
+          <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid var(--border);">
+            <h4>➕ Add Subject</h4>
+            <div class="form-group">
+              <input type="text" id="adminNewSubInput" placeholder="e.g. Botany, History, Polity">
+            </div>
+            <button class="btn btn-primary w-100" onclick="adminAddNewConfig('Subject')">Save Subject</button>
+            <h5 style="margin-top:15px; margin-bottom:5px;">Existing Subjects:</h5>
+            <div id="adminSubBadgeList" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>👑 Student Assessment Records</h3>
+        <div class="grid-3">
+          <div class="form-group">
+            <label>Filter User:</label>
+            <input type="text" id="adminFilterUser" placeholder="Search ID or Name" oninput="filterAdminReports()">
+          </div>
+          <div class="form-group">
+            <label>Filter Standard:</label>
+            <select id="adminFilterStd" onchange="filterAdminReports()"></select>
+          </div>
+          <div class="form-group">
+            <label>Filter Subject:</label>
+            <select id="adminFilterSub" onchange="filterAdminReports()"></select>
+          </div>
+        </div>
+
+        <table class="report-table margin-top">
+          <thead>
+            <tr>
+              <th>User ID</th>
+              <th>Student Name</th>
+              <th>Class</th>
+              <th>Subject</th>
+              <th>Score</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody id="adminScoresTable"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
