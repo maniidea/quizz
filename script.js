@@ -15,7 +15,7 @@ let adminUsersList = [];
 let activeQuizList = [];
 let currentQuestionIndex = 0;
 let userScore = 0;
-let perQuestionTime = 20; // in seconds (0 means no timer)
+let perQuestionTime = 20; 
 let timeRemaining = 0;
 let timerInterval = null;
 let autoNextTimeout = null;
@@ -35,7 +35,6 @@ window.onload = async () => {
   }
 };
 
-// Fetch Standards, Subjects, and Questions bundle
 async function loadInitialConfigs() {
   try {
     const url = `${SCRIPT_URL}?action=getInitialData${currentUser ? '&userId=' + encodeURIComponent(currentUser.id) : ''}`;
@@ -58,8 +57,8 @@ async function loadInitialConfigs() {
 }
 
 function populateDropdowns() {
-  const stdSelects = ["loginUserStd", "batchStd", "manualStd", "adminFilterStd"];
-  const subSelects = ["quizSubjectSelect", "batchSub", "manualSub", "adminFilterSub"];
+  const stdSelects = ["loginUserStd", "batchStd", "manualStd", "adminFilterStd", "manageFilterStd"];
+  const subSelects = ["quizSubjectSelect", "batchSub", "manualSub", "adminFilterSub", "manageFilterSub"];
 
   stdSelects.forEach(id => {
     const el = document.getElementById(id);
@@ -108,7 +107,6 @@ function populatePlayStandards() {
   }
 }
 
-// User Sign In / Registration
 async function handleAuth() {
   const userId = document.getElementById("loginUserId").value.trim();
   const name = document.getElementById("loginUserName").value.trim();
@@ -162,7 +160,7 @@ function logout() {
 
 function switchTab(tab) {
   document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
-  ["playTab", "createTab", "reportsTab", "adminTab"].forEach(id => {
+  ["playTab", "createTab", "manageTab", "reportsTab", "adminTab"].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add("hidden");
   });
@@ -174,6 +172,10 @@ function switchTab(tab) {
     resetQuizView();
   }
   if (tab === "create") document.getElementById("createTab").classList.remove("hidden");
+  if (tab === "manage") {
+    document.getElementById("manageTab").classList.remove("hidden");
+    loadManageQuestionsView();
+  }
   if (tab === "reports") {
     document.getElementById("reportsTab").classList.remove("hidden");
     loadUserReports();
@@ -204,7 +206,7 @@ function switchCreateMethod(method) {
 }
 
 // -------------------------------------------------------------
-// 1. SINGLE-QUESTION QUIZ ENGINE WITH TIME SCHEDULE & QUESTION LIMIT
+// 1. PLAY QUIZ ENGINE
 // -------------------------------------------------------------
 function resetQuizView() {
   clearInterval(timerInterval);
@@ -463,9 +465,16 @@ async function finishQuiz() {
 async function generateFromImage() {
   const fileInput = document.getElementById("imageInput");
   const file = fileInput.files[0];
-  if (!file) return alert("Select an image file first.");
+  if (!file) return alert("Select an image or PDF document first.");
 
-  const count = document.getElementById("ocrCount").value;
+  const countInput = document.getElementById("ocrCount");
+  let count = parseInt(countInput.value, 10);
+
+  if (!count || count <= 0) {
+    alert("Please enter a valid question count.");
+    return;
+  }
+
   const loader = document.getElementById("ocrLoader");
   loader.classList.remove("hidden");
 
@@ -579,7 +588,78 @@ async function publishManualSingleQuestion() {
 }
 
 // -------------------------------------------------------------
-// 4. USER REPORTS (Accurate Local Date Normalization)
+// 4. MANAGE QUESTIONS TAB (USER DELETES OWN, ADMIN FULL CONTROL)
+// -------------------------------------------------------------
+function loadManageQuestionsView() {
+  const badge = document.getElementById("manageScopeBadge");
+  const subtitle = document.getElementById("manageSubtitle");
+  
+  if (currentUser.role === "admin") {
+    badge.innerText = "👑 Admin Master Control (All Questions)";
+    badge.style.background = "#003366";
+    subtitle.innerText = "Full Administrator Control: Filter and delete any questions in the system.";
+  } else {
+    badge.innerText = "👤 My Uploaded Questions";
+    badge.style.background = "#f37021";
+    subtitle.innerText = "You can view and delete questions you have created.";
+  }
+
+  filterManageQuestions();
+}
+
+function filterManageQuestions() {
+  const search = document.getElementById("manageSearchInput").value.toLowerCase();
+  const std = document.getElementById("manageFilterStd").value.toString().toLowerCase().replace(/class/gi, "").trim();
+  const sub = document.getElementById("manageFilterSub").value.toLowerCase().trim();
+  const tbody = document.getElementById("manageQuestionsTable");
+  tbody.innerHTML = "";
+
+  const isAdmin = (currentUser.role === "admin");
+  const currentUserId = currentUser.id.toString().toLowerCase().trim();
+
+  // Non-admins see only their own questions; Admins see all questions
+  const filtered = masterQuestionsPool.filter(q => {
+    const qCreator = (q.creatorId || "").toString().toLowerCase().trim();
+    const isOwner = (qCreator === currentUserId);
+    if (!isAdmin && !isOwner) return false;
+
+    const qStd = (q.standard || "").toString().toLowerCase().replace(/class/gi, "").trim();
+    const qSub = (q.subject || "").toString().toLowerCase().trim();
+    const qText = (q.question || "").toLowerCase();
+
+    const matchSearch = !search || qText.includes(search);
+    const matchStd = !std || (qStd === std);
+    const matchSub = !sub || (qSub === sub);
+
+    return matchSearch && matchStd && matchSub;
+  });
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#666;">No questions found matching the selected filter.</td></tr>`;
+    return;
+  }
+
+  filtered.forEach(q => {
+    tbody.innerHTML += `
+      <tr>
+        <td><strong>Class ${q.standard}</strong></td>
+        <td>${q.subject}</td>
+        <td>
+          <div style="font-weight:600;">${q.question}</div>
+          <small style="color:#555;">A) ${q.optA} | B) ${q.optB} | C) ${q.optC} | D) ${q.optD}</small><br>
+          <small style="color:#2e7d32; font-weight:bold;">Correct: Option ${q.correctOpt}</small>
+        </td>
+        <td><code>${q.creatorId || 'System'}</code></td>
+        <td>
+          <button class="btn btn-danger" style="padding:4px 8px; font-size:0.8rem;" onclick="deleteQ('${q.id}')">🗑️ Delete</button>
+        </td>
+      </tr>
+    `;
+  });
+}
+
+// -------------------------------------------------------------
+// 5. USER REPORTS
 // -------------------------------------------------------------
 let userMasterScores = [];
 
@@ -636,7 +716,6 @@ function filterUserReports() {
   const subVal = document.getElementById("reportFilterSub").value.toString().toLowerCase().trim();
 
   const filtered = userMasterScores.filter(item => {
-    // Extract Local YYYY-MM-DD safely without UTC shift
     let itemDate = "";
     if (item.date) {
       const d = new Date(item.date);
@@ -721,7 +800,7 @@ function resetReportDateFilters() {
 }
 
 // -------------------------------------------------------------
-// 5. ADMIN DASHBOARD & CHECKMARK ACCESS
+// 6. ADMIN DASHBOARD & CHECKMARK ACCESS
 // -------------------------------------------------------------
 async function loadAdminDashboard() {
   const resScores = await fetch(`${SCRIPT_URL}?action=getAllScores&adminId=${encodeURIComponent(currentUser.id)}`);
@@ -897,7 +976,7 @@ async function deleteQ(id) {
   if (data.success) {
     alert("Question deleted.");
     await loadInitialConfigs();
-    resetQuizView();
+    filterManageQuestions();
   } else {
     alert(data.error);
   }
