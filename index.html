@@ -18,6 +18,7 @@
 
 <div class="container">
 
+  <!-- AUTHENTICATION CARD -->
   <div id="authView" class="card">
     <h3>Sign In or Register</h3>
     <p>Sign in using your ID or register your profile and initial class.</p>
@@ -45,17 +46,18 @@
     <button class="btn btn-primary w-100" onclick="handleAuth()">Access Portal</button>
   </div>
 
+  <!-- MAIN APP CONTAINER -->
   <div id="mainApp" class="hidden">
     <div class="tabs">
       <button class="tab-btn active" onclick="switchTab('play')">Play Quiz</button>
       <button class="tab-btn" onclick="switchTab('create')">Upload / Create Q&A</button>
+      <button class="tab-btn" onclick="switchTab('manage')">Manage Questions</button>
       <button class="tab-btn" onclick="switchTab('reports')">My Score Reports</button>
       <button class="tab-btn admin-only hidden" onclick="switchTab('admin')">Admin Board</button>
     </div>
 
+    <!-- TAB 1: PLAY QUIZ -->
     <div id="playTab">
-      
-     <!-- QUIZ SETUP / FILTER CARD -->
       <div id="quizSetupCard" class="card">
         <h3>🎯 Start Assessment</h3>
         <p class="notice">Customize your quiz standard, subject, question limit, and optional time schedule.</p>
@@ -72,7 +74,6 @@
         </div>
 
         <div class="grid-2">
-          <!-- MANUAL TYPE OR CHOOSE ALL -->
           <div class="form-group">
             <label>Number of Questions:</label>
             <div style="display: flex; gap: 8px; align-items: center;">
@@ -84,7 +85,6 @@
             </div>
           </div>
 
-          <!-- TIMER SELECTION -->
           <div class="form-group">
             <label>Timer Schedule (Per Question):</label>
             <select id="quizTimerSelect">
@@ -126,9 +126,9 @@
         <p id="resultFeedback" style="font-size: 1.1rem;"></p>
         <button class="btn btn-primary margin-top" onclick="resetQuizView()">Retake / New Quiz</button>
       </div>
-
     </div>
 
+    <!-- TAB 2: UPLOAD / CREATE Q&A -->
     <div id="createTab" class="hidden">
       <div style="display:flex; gap:10px; margin-bottom: 15px;">
         <button id="btnMethodAi" class="btn btn-secondary flex-1" onclick="switchCreateMethod('ai')">📷 Method 1: AI Photo Scanner</button>
@@ -137,20 +137,15 @@
 
       <div id="sectionAiCreate" class="card">
         <h3>📷 Generate Questions via Gemini Vision</h3>
-        <p class="notice">Take or upload a photo of a textbook, bill, notes, or test page.</p>
+        <p class="notice">Upload or capture an image/PDF document to auto-generate multiple choice questions.</p>
         <div class="grid-2">
           <div class="form-group">
-  <label>Upload Document (PDF or Image):</label>
-  <input type="file" id="imageInput" accept="image/*,application/pdf" capture="environment">
-</div>
+            <label>Upload Document (PDF or Image):</label>
+            <input type="file" id="imageInput" accept="image/*,application/pdf" capture="environment">
+          </div>
           <div class="form-group">
-            <label>Question Count:</label>
-            <select id="ocrCount">
-              <option value="5">5 Questions</option>
-              <option value="10" selected>10 Questions</option>
-              <option value="15">15 Questions</option>
-              <option value="20">20 Questions</option>
-            </select>
+            <label>Question Count (Type any number):</label>
+            <input type="number" id="ocrCount" min="1" max="50" value="10" placeholder="e.g. 5, 10, 25">
           </div>
         </div>
         <button class="btn btn-secondary w-100" onclick="generateFromImage()">⚡ Parse & Generate Questions</button>
@@ -220,13 +215,55 @@
       </div>
     </div>
 
-   <!-- TAB 3: USER REPORTS (WITH FROM DATE TO TO DATE FILTER) -->
+    <!-- TAB 3: MANAGE QUESTIONS (USER DELETES OWN, ADMIN CONTROLS ALL) -->
+    <div id="manageTab" class="hidden">
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h3 id="manageTitle" style="margin:0;">🗂️ Manage Questions</h3>
+          <span id="manageScopeBadge" class="badge" style="background:#003366; color:#fff;">My Questions</span>
+        </div>
+        <p class="notice" id="manageSubtitle">View and delete questions you have created.</p>
+
+        <div class="grid-3">
+          <div class="form-group">
+            <label>Search Question Keyword:</label>
+            <input type="text" id="manageSearchInput" placeholder="Filter text..." oninput="filterManageQuestions()">
+          </div>
+          <div class="form-group">
+            <label>Filter Standard:</label>
+            <select id="manageFilterStd" onchange="filterManageQuestions()">
+              <option value="">All Standards</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Filter Subject:</label>
+            <select id="manageFilterSub" onchange="filterManageQuestions()">
+              <option value="">All Subjects</option>
+            </select>
+          </div>
+        </div>
+
+        <table class="report-table margin-top">
+          <thead>
+            <tr>
+              <th style="width: 10%;">Class</th>
+              <th style="width: 15%;">Subject</th>
+              <th style="width: 45%;">Question & Options</th>
+              <th style="width: 15%;">Creator ID</th>
+              <th style="width: 15%;">Action</th>
+            </tr>
+          </thead>
+          <tbody id="manageQuestionsTable"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 4: MY SCORE REPORTS -->
     <div id="reportsTab" class="hidden">
       <div class="card">
         <h3>📊 Score Reports & Progress Tracking</h3>
         <p class="notice">Filter your performance report by date range, standard, or subject.</p>
 
-        <!-- DATE RANGE & SUBJECT FILTERS -->
         <div class="grid-2">
           <div class="form-group">
             <label>From Date:</label>
@@ -257,7 +294,6 @@
           <button class="btn btn-outline-dark flex-1" onclick="resetReportDateFilters()">🔄 Reset Filters</button>
         </div>
 
-        <!-- SUMMARY STAT CARDS -->
         <div style="display: flex; gap: 12px; margin: 20px 0; flex-wrap: wrap;">
           <div style="flex: 1; min-width: 140px; background: #e8f4fd; border: 1px solid #b6d4fe; padding: 12px; border-radius: 6px; text-align: center;">
             <div style="font-size: 0.8rem; color: #084298; font-weight: bold;">TESTS TAKEN</div>
@@ -273,7 +309,6 @@
           </div>
         </div>
 
-        <!-- REPORTS TABLE -->
         <table class="report-table">
           <thead>
             <tr>
@@ -289,9 +324,8 @@
       </div>
     </div>
 
-
+    <!-- TAB 5: ADMIN DASHBOARD -->
     <div id="adminTab" class="hidden">
-      
       <div class="card">
         <h3>🛡️ User Class Access Permissions</h3>
         <p class="notice">Select checkmarks to grant students (e.g. TNPSC/Aspirants) access to multiple class quizzes.</p>
